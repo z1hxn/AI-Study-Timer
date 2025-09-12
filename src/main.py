@@ -41,6 +41,8 @@ class StudyTimer:
             font=("Pretendard", 96),
             fg="#111111",
             bg="#ffffff",
+            width=6,
+            anchor="center",
         )
         self.time_label.pack(expand=True)
 
