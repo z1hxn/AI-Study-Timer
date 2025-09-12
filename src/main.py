@@ -1,5 +1,11 @@
 from tkinter import *
 import time
+import cv2
+import numpy as np
+import mediapipe as mp
+from PIL import Image, ImageTk
+from tensorflow import keras
+import json
 
 class StudyTimer:
     def __init__(self):
@@ -17,11 +23,22 @@ class StudyTimer:
         self.elapsed_ms = 0      # 정지 상태에서 유지되는 누적 시간(ms)
         self.tick_job = None     # after() 예약 id
 
+        self.result_var = StringVar()
+
         # 창 닫기 시 예약된 after 해제
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # 위젯 생성부분
         self.create_widgets()
+
+        with open("./src/module/TensorFlow/metadata.json", "r") as f:
+            metadata = json.load(f)
+        self.labels = metadata["labels"]
+        self.model = keras.models.load_model("./src/module/Study_AI_Model.h5")
+        self.pose = mp.solutions.pose.Pose()
+        self.cap = cv2.VideoCapture(0)
+
+        self.update_ai_frame()
 
     def create_widgets(self): # 위젯 생성부분
         self.root.grid_rowconfigure(0, weight=1)
@@ -77,14 +94,10 @@ class StudyTimer:
         self.timer_reset_button.pack(pady=(0, 40))
 
         # AI 판독 영역 부분
-        self.ai_label = Label(
-            self.ai_frame,
-            text="AI 판독 영역 (추후 연결)",
-            font=("Pretendard", 20),
-            fg="#1f3b80",
-            bg="#eef4ff",
-        )
-        self.ai_label.pack(expand=True)
+        self.ai_video_label = Label(self.ai_frame)
+        self.ai_video_label.pack(side="top")
+        self.ai_result_label = Label(self.ai_frame, textvariable=self.result_var, font=("Pretendard", 20), fg="#1f3b80", bg="#eef4ff")
+        self.ai_result_label.pack(side="bottom")
 
     
     def toggle_timer(self): # 시작/정지 버튼 함수
@@ -149,6 +162,39 @@ class StudyTimer:
         s = total % 60
         return f"{h}:{m:02d}:{s:02d}" # 포멧 수정
 
+    def update_ai_frame(self):
+        ret, frame = self.cap.read()
+        if not ret:
+            self.result_var.set("Camera not available")
+            self.root.after(10, self.update_ai_frame)
+            return
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.pose.process(frame_rgb)
+
+        keypoints = []
+        if results.pose_landmarks:
+            for lm in results.pose_landmarks.landmark:
+                keypoints.extend([lm.x, lm.y, lm.z, lm.visibility])
+        # Zero padding to 14739
+        if len(keypoints) < 14739:
+            keypoints.extend([0.0] * (14739 - len(keypoints)))
+        else:
+            keypoints = keypoints[:14739]
+        input_data = np.array(keypoints, dtype=np.float32).reshape(1, 1, 14739)
+  
+        preds = self.model.predict(input_data, verbose=0)
+        pred_index = np.argmax(preds)
+        pred_label = self.labels[pred_index]
+        self.result_var.set(f"AI 판독 결과: {pred_label}")
+
+        img = Image.fromarray(frame_rgb).resize((320, 240))
+        imgtk = ImageTk.PhotoImage(image=img)
+        self.ai_video_label.imgtk = imgtk
+        self.ai_video_label.config(image=imgtk)
+
+        self.root.after(10, self.update_ai_frame)
+
     def on_close(self): # 창 닫기 함수
 
          # 창 닫기 시 예약된 after 해제
@@ -158,6 +204,8 @@ class StudyTimer:
             except Exception:
                 pass
             self.tick_job = None
+        if hasattr(self, "cap") and self.cap.isOpened():
+            self.cap.release()
         self.root.destroy()
 
 if __name__ == "__main__":
