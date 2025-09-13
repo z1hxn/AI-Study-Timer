@@ -242,7 +242,7 @@ class StudyTimer:
 
             if pred_label == "Distracted":
                 if self.countdown_job is None:
-                    self.remaining_secs = 10  # 몇 초 동안 미집중 상태일시 정지할지 설정
+                    self.remaining_secs = 30  # 몇 초 동안 미집중 상태일시 정지할지 설정
                     self.update_countdown()
             elif pred_label == "Studying":
                 if self.countdown_job is not None:
