@@ -203,6 +203,8 @@ class StudyTimer:
 
     def update_ai_frame(self):
         ret, frame = self.cap.read()
+
+        # 카메라 프레임 읽기 실패 시 재시도
         if not ret:
             self.result_var.set("카메라를 사용할 수 없습니다")
             self.root.after(10, self.update_ai_frame)
@@ -210,17 +212,20 @@ class StudyTimer:
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+        # 타이머가 실행 중이지 않을경우 판독X
         if not self.is_running:
             self.result_var.set("타이머를 시작해주세요")
             self.probs_var.set("")
             self.countdown_var.set("")
         else:
+            # 판독 부분
             results = self.pose.process(frame_rgb)
 
             keypoints = []
             if results.pose_landmarks:
                 for lm in results.pose_landmarks.landmark:
                     keypoints.extend([lm.x, lm.y, lm.z, lm.visibility])
+
             # 14739 길이로 0 패딩
             if len(keypoints) < 14739:
                 keypoints.extend([0.0] * (14739 - len(keypoints)))
@@ -232,6 +237,8 @@ class StudyTimer:
             preds = preds.flatten()
             pred_index = np.argmax(preds)
             pred_label = self.labels[pred_index]
+
+            # 모델 라벨에 따라 결과 텍스트 바꾸기
             if pred_label == "Studying":
                 status_text = "현재 상태 : 공부 중"
             elif pred_label == "Distracted":
@@ -240,10 +247,13 @@ class StudyTimer:
                 status_text = f"현재 상태 : {pred_label}"
             self.result_var.set(status_text)
 
+            # 미집중 상태일 때 : 타이머 정지 카운트다운 시작
             if pred_label == "Distracted":
                 if self.countdown_job is None:
-                    self.remaining_secs = 30  # 몇 초 동안 미집중 상태일시 정지할지 설정
+                    self.remaining_secs = 30  # 몇 초 동안 미집중 상태일시 정지할지 설정 / 초기화
                     self.update_countdown()
+
+            # 공부 중일 때 : 카운트다운 취소
             elif pred_label == "Studying":
                 if self.countdown_job is not None:
                     try:
@@ -263,18 +273,20 @@ class StudyTimer:
         new_w, new_h = int(w * scale), int(h * scale)
         img = Image.fromarray(frame_rgb).resize((new_w, new_h))
 
+        # 중앙 정렬을 위해 빈 캔버스에 붙이기
         imgtk = ImageTk.PhotoImage(image=img)
         self.ai_video_label.imgtk = imgtk
         self.ai_video_label.config(image=imgtk)
 
+        # 10ms 간격으로 업데이트 예약
         self.root.after(10, self.update_ai_frame)
 
-    def update_countdown(self):
-        if self.remaining_secs > 0:
+    def update_countdown(self): # 미집중 상태 카운트다운 함수
+        if self.remaining_secs > 0: # 카운트다운 진행 중
             self.countdown_var.set(f"집중 안함! 타이머 정지까지 {self.remaining_secs}초 남음")
             self.remaining_secs -= 1
             self.countdown_job = self.root.after(1000, self.update_countdown)
-        else:
+        else: # 카운트다운 종료 - 타이머 정지
             self.countdown_job = None
             if self.is_running:
                 if self.start_time is not None:
@@ -290,7 +302,7 @@ class StudyTimer:
                     self.tick_job = None
                 self.time_label.config(text=self.format_ms(self.elapsed_ms))
                 self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
-            self.countdown_var.set("집중 실패: 1분 경과")
+            self.countdown_var.set("집중 실패: 30초 경과")
             messagebox.showwarning("집중 경고", "미집중 상태가 지속되어 타이머가 중지되었습니다.")
 
     def select_camera(self, selection):
