@@ -7,6 +7,7 @@ import mediapipe as mp
 from PIL import Image, ImageTk
 from tensorflow import keras
 import json
+import random
 
 class StudyTimer:
     def __init__(self):
@@ -31,6 +32,30 @@ class StudyTimer:
         self.remaining_secs = 0 # 미집중 상태 측정 시간
         self.countdown_var = StringVar()
 
+        # 격려 문구 관련 변수
+        self.pause_message_var = StringVar()
+        self.pause_message_job = None
+        self.always_show_message = True  # 상시 표시 여부
+        
+        # 격려 문구 리스트
+        self.encouragement_messages = [
+            "시간은 금이다. 지금이 바로 그 순간이다.",
+            "작은 습관이 큰 변화를 만든다.",
+            "오늘의 노력은 내일의 성과다.",
+            "포기하는 순간, 게임은 끝난다.",
+            "지금 하지 않으면 영원히 후회한다.",
+            "집중은 성공의 첫걸음이다.",
+            "한 시간 후의 나는 지금의 나를 칭찬할까?",
+            "작은 성취가 큰 자신감을 만든다.",
+            "멈추지 않는 자만이 도달한다.",
+            "성공은 반복된 집중에서 태어난다.",
+            "시간은 당신을 기다려주지 않는다.",
+            "노력 없이는 아무것도 얻을 수 없다.",
+            "당신의 미래는 지금 결정된다.",
+            "잠깐의 집중이 평생의 결과를 바꾼다.",
+            "이 순간이 가장 중요한 순간이다."
+        ]
+
         self.camera_index = 1  # 기본값: 맥북 내장 카메라
 
         self.camera_names = {
@@ -53,9 +78,13 @@ class StudyTimer:
         self.labels = metadata["labels"]
         self.model = keras.models.load_model("./src/module/Study_AI_Model.h5")
         self.pose = mp.solutions.pose.Pose()
+        self.mp_drawing = mp.solutions.drawing_utils
         self.cap = cv2.VideoCapture(self.camera_index)
 
         self.update_ai_frame()
+        
+        # 상시 격려 메시지 시작
+        self.start_continuous_messages()
 
     def create_widgets(self): # 위젯 생성
         self.root.grid_rowconfigure(0, weight=1)
@@ -122,19 +151,58 @@ class StudyTimer:
         self.ai_video_label = Label(self.ai_frame, bg="#eef4ff")
         self.ai_video_label.pack(pady=20)
 
-        self.ai_result_label = Label(self.ai_frame, textvariable=self.result_var,
-                                     font=("Pretendard", 20), fg="#1f3b80", bg="#eef4ff")
+        # AI 결과 표시 라벨
+        self.ai_result_label = Label(
+            self.ai_frame, 
+            textvariable=self.result_var,
+            font=("Pretendard", 20), 
+            fg="#1f3b80", 
+            bg="#eef4ff"
+        )
         self.ai_result_label.pack(pady=10)
 
-        self.ai_probs_label = Label(self.ai_frame, textvariable=self.probs_var,
-                                    font=("Pretendard", 14), fg="#333333", bg="#eef4ff", justify="left")
+        # AI 확률 표시 라벨
+        self.ai_probs_label = Label(
+            self.ai_frame, 
+            textvariable=self.probs_var,
+            font=("Pretendard", 14), 
+            fg="#333333", 
+            bg="#eef4ff", 
+            justify="left"
+        )
         self.ai_probs_label.pack(pady=5)
 
-        self.ai_countdown_label = Label(self.ai_frame, textvariable=self.countdown_var,
-                                        font=("Pretendard", 16), fg="red", bg="#eef4ff")
+        # 카운트다운 텍스트와 숫자 분리
+        self.ai_countdown_label = Label(
+            self.ai_frame, 
+            font=("Pretendard", 16), 
+            fg="red", 
+            bg="#eef4ff", 
+            text=""
+        )
         self.ai_countdown_label.pack(pady=5)
-
-
+        
+        # 카운트다운 숫자 전용 라벨 (더 큰 폰트)
+        self.ai_countdown_number_label = Label(
+            self.ai_frame, 
+            font=("Pretendard", 32, "bold"), 
+            fg="red", 
+            bg="#eef4ff", 
+            text=""
+        )
+        self.ai_countdown_number_label.pack(pady=2)
+        
+        # 항상 표시되는 격려 메시지 (AI 프레임 맨 밑)
+        self.ai_pause_message_label = Label(
+            self.ai_frame, 
+            textvariable=self.pause_message_var,
+            font=("Pretendard", 16), 
+            fg="#333333", 
+            bg="#eef4ff", 
+            wraplength=300, 
+            justify="center"
+        )
+        self.ai_pause_message_label.pack(side=BOTTOM, pady=5)
     
     def toggle_timer(self): # 시작/정지 버튼 함수
         # 시작/정지 토글
@@ -144,6 +212,7 @@ class StudyTimer:
             self.start_time = time.perf_counter()
             self.timer_start_button.config(text="Stop", bg="#f44336", activebackground="#da190b") # 버튼 Stop으로 변경
             self.timer_reset_button.place_forget()
+            # 상시 메시지는 계속 표시되도록 유지 (중지하지 않음)
             if self.tick_job is None:
                 self.update_timer() # 타이머 업데이트 시작
 
@@ -186,6 +255,8 @@ class StudyTimer:
                 pass
             self.tick_job = None
 
+        # 상시 메시지는 계속 표시 (리셋 시에도 격려 메시지 유지)
+
         # 상태 변수 초기화
         self.is_running = False
         self.start_time = None
@@ -201,7 +272,10 @@ class StudyTimer:
         s = total % 60
         return f"{h}:{m:02d}:{s:02d}" # 포맷 수정
 
-    def update_ai_frame(self):
+    def update_ai_frame(self): # AI 판독 프레임 업데이트 함수
+
+        # 아래 코드 TensorFlow 모델 부분 임포트 코드이므로 변경하지 말 것
+
         ret, frame = self.cap.read()
 
         # 카메라 프레임 읽기 실패 시 재시도
@@ -216,10 +290,31 @@ class StudyTimer:
         if not self.is_running:
             self.result_var.set("타이머를 시작해주세요")
             self.probs_var.set("")
-            self.countdown_var.set("")
+            self.ai_countdown_label.config(text="")
+            self.ai_countdown_number_label.config(text="")
+            
+            # 실행 중이지 않을 때는 카운트다운 중지
+            if self.countdown_job is not None:
+                try:
+                    self.root.after_cancel(self.countdown_job)
+                except Exception:
+                    pass
+                self.countdown_job = None
+            
+            # 상시 메시지 표시는 유지 (이미 start_continuous_messages에서 자동으로 작동 중)
         else:
             # 판독 부분
             results = self.pose.process(frame_rgb)
+
+            # 뼈대 표시
+            if results.pose_landmarks:
+                self.mp_drawing.draw_landmarks(
+                    frame_rgb, 
+                    results.pose_landmarks, 
+                    mp.solutions.pose.POSE_CONNECTIONS,
+                    landmark_drawing_spec=self.mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=3, circle_radius=5),
+                    connection_drawing_spec=self.mp_drawing.DrawingSpec(color=(255, 0, 0), thickness=4)
+                )
 
             keypoints = []
             if results.pose_landmarks:
@@ -232,7 +327,7 @@ class StudyTimer:
             else:
                 keypoints = keypoints[:14739]
             input_data = np.array(keypoints, dtype=np.float32).reshape(1, 1, 14739)
-      
+            
             preds = self.model.predict(input_data, verbose=0)
             preds = preds.flatten()
             pred_index = np.argmax(preds)
@@ -247,8 +342,8 @@ class StudyTimer:
                 status_text = f"현재 상태 : {pred_label}"
             self.result_var.set(status_text)
 
-            # 미집중 상태일 때 : 타이머 정지 카운트다운 시작
-            if pred_label == "Distracted":
+            # 미집중 상태일 때 : 타이머 정지 카운트다운 시작 (타이머가 실행 중일 때만)
+            if pred_label == "Distracted" and self.is_running:
                 if self.countdown_job is None:
                     self.remaining_secs = 30  # 몇 초 동안 미집중 상태일시 정지할지 설정 / 초기화
                     self.update_countdown()
@@ -261,7 +356,8 @@ class StudyTimer:
                     except Exception:
                         pass
                     self.countdown_job = None
-                self.countdown_var.set("")
+                self.ai_countdown_label.config(text="")
+                self.ai_countdown_number_label.config(text="")
 
             probs_text = " / ".join([f"{self.labels[i]}: {float(preds[i])*100:.1f}%" for i in range(len(self.labels))])
             self.probs_var.set(probs_text)
@@ -282,10 +378,14 @@ class StudyTimer:
         self.root.after(10, self.update_ai_frame)
 
     def update_countdown(self): # 미집중 상태 카운트다운 함수
+        
         if self.remaining_secs > 0: # 카운트다운 진행 중
-            self.countdown_var.set(f"집중 안함! 타이머 정지까지 {self.remaining_secs}초 남음")
+            # 텍스트와 숫자를 분리해서 표시
+            self.ai_countdown_label.config(text="집중하지 않고 있음! 타이머 정지까지")
+            self.ai_countdown_number_label.config(text=f"{self.remaining_secs}")
             self.remaining_secs -= 1
             self.countdown_job = self.root.after(1000, self.update_countdown)
+
         else: # 카운트다운 종료 - 타이머 정지
             self.countdown_job = None
             if self.is_running:
@@ -302,10 +402,35 @@ class StudyTimer:
                     self.tick_job = None
                 self.time_label.config(text=self.format_ms(self.elapsed_ms))
                 self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
-            self.countdown_var.set("집중 실패: 30초 경과")
+            self.ai_countdown_label.config(text="집중 실패: 30초 경과")
+            self.ai_countdown_number_label.config(text="")
             messagebox.showwarning("집중 경고", "미집중 상태가 지속되어 타이머가 중지되었습니다.")
 
-    def select_camera(self, selection):
+    def start_continuous_messages(self): # 메시지 표시 시작 함수
+        if self.always_show_message:
+            self.update_pause_message()
+    
+    def stop_continuous_messages(self): # 메시지 업데이트 중지 함수 (종료용)
+        if self.pause_message_job is not None:
+            try:
+                self.root.after_cancel(self.pause_message_job)
+            except Exception:
+                pass
+            self.pause_message_job = None
+    
+    def update_pause_message(self): # 메시지 30초마다 업데이트 함수
+        random_message = random.choice(self.encouragement_messages) #리스트에서 메시지 랜덤으로 고르기
+        self.pause_message_var.set(f'"{random_message}"') # 따옴표 붙여서 출력
+        
+        # 30초마다 상시 업데이트
+        if self.always_show_message:
+            self.pause_message_job = self.root.after(30000, self.update_pause_message)
+        else:
+            self.pause_message_job = None
+
+    def select_camera(self, selection): # 카메라 선택 함수
+
+        # 카메라 인덱스 선택 공식 코드이므로 변경하지 말 것
         index = list(self.camera_names.values()).index(selection)
         if hasattr(self, "cap") and self.cap.isOpened():
             self.cap.release()
@@ -314,14 +439,18 @@ class StudyTimer:
         self.result_var.set(f"{selection}로 전환됨")
 
     def on_close(self): # 창 닫기 함수
-
-         # 창 닫을 때 예약된 after 해제
+        
+        # 창 닫을 때 예약된 after 해제
         if self.tick_job is not None:
             try:
                 self.root.after_cancel(self.tick_job)
             except Exception:
                 pass
             self.tick_job = None
+        
+        # 상시 메시지 중지
+        self.stop_continuous_messages()
+        
         if hasattr(self, "cap") and self.cap.isOpened():
             self.cap.release()
         self.root.destroy()
