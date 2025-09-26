@@ -5,12 +5,12 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from tensorflow import keras
 import json
-with open("./src/module/TensorFlow/metadata.json", "r") as f:
+with open("./src/model/TensorFlow/metadata.json", "r") as f:
     metadata = json.load(f)
 labels = metadata["labels"]
 
 # 1. 모델 불러오기
-model = keras.models.load_model("./src/module/Study_AI_Model.h5")
+model = keras.models.load_model("./src/model/Study_AI_Model.h5")
 
 # 2. Mediapipe Pose
 mp_pose = mp.solutions.pose

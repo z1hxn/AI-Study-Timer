@@ -29,8 +29,10 @@ class StudyTimer:
         self.probs_var = StringVar()
 
         self.countdown_job = None
-        self.remaining_secs = 0 # 미집중 상태 측정 시간
-        self.countdown_var = StringVar()
+        self.remaining_secs = 0  # 미집중 상태 측정 시간
+
+        # 타이머 프레임 상태 표시
+        self.timer_status_var = StringVar(value="Start 버튼을 눌러 공부 측정을 시작하세요")
 
         # 격려 문구 관련 변수
         self.pause_message_var = StringVar()
@@ -56,6 +58,7 @@ class StudyTimer:
             "이 순간이 가장 중요한 순간이다."
         ]
 
+        # 카메라 선택 관련 변수
         self.camera_index = 1  # 기본값: 맥북 내장 카메라
 
         self.camera_names = {
@@ -73,10 +76,11 @@ class StudyTimer:
         # 위젯 생성
         self.create_widgets()
 
-        with open("./src/module/TensorFlow/metadata.json", "r") as f:
+        # AI 모델 불러오기
+        with open("./src/model/TensorFlow/metadata.json", "r") as f:
             metadata = json.load(f)
         self.labels = metadata["labels"]
-        self.model = keras.models.load_model("./src/module/Study_AI_Model.h5")
+        self.model = keras.models.load_model("./src/model/Study_AI_Model.h5")
         self.pose = mp.solutions.pose.Pose()
         self.mp_drawing = mp.solutions.drawing_utils
         self.cap = cv2.VideoCapture(self.camera_index)
@@ -94,6 +98,17 @@ class StudyTimer:
         # 타이머 영역
         self.timer_frame = Frame(self.root, bg="#ffffff", highlightthickness=0)
         self.timer_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
+
+        # 타이머 상태 표시 (맨 위, 맨 왼쪽)
+        self.timer_status_label = Label(
+            self.timer_frame,
+            textvariable=self.timer_status_var,
+            font=("Pretendard", 16),
+            fg="#666666",
+            bg="#ffffff",
+            anchor="w"
+        )
+        self.timer_status_label.place(relx=0.02, rely=0.02, anchor="nw")
 
         # AI 판독 영역
         self.ai_frame = Frame(self.root, bg="#eef4ff", highlightthickness=0)
@@ -172,7 +187,7 @@ class StudyTimer:
         )
         self.ai_probs_label.pack(pady=5)
 
-        # 카운트다운 텍스트와 숫자 분리
+        # 미집중 경고 텍스트 (분리된 표시)
         self.ai_countdown_label = Label(
             self.ai_frame, 
             font=("Pretendard", 16), 
@@ -182,7 +197,7 @@ class StudyTimer:
         )
         self.ai_countdown_label.pack(pady=5)
         
-        # 카운트다운 숫자 전용 라벨 (더 큰 폰트)
+        # 미집중 타이머 숫자 (큰 폰트로 분리 표시)
         self.ai_countdown_number_label = Label(
             self.ai_frame, 
             font=("Pretendard", 32, "bold"), 
@@ -192,17 +207,17 @@ class StudyTimer:
         )
         self.ai_countdown_number_label.pack(pady=2)
         
-        # 항상 표시되는 격려 메시지 (AI 프레임 맨 밑)
+        # 격려 문구 표시 라벨 (카운트다운과 맨밑 사이 중간)
         self.ai_pause_message_label = Label(
             self.ai_frame, 
             textvariable=self.pause_message_var,
-            font=("Pretendard", 16), 
+            font=("Pretendard", 18), 
             fg="#333333", 
             bg="#eef4ff", 
             wraplength=300, 
             justify="center"
         )
-        self.ai_pause_message_label.pack(side=BOTTOM, pady=5)
+        self.ai_pause_message_label.pack(side=BOTTOM, pady=60)
     
     def toggle_timer(self): # 시작/정지 버튼 함수
         # 시작/정지 토글
@@ -212,6 +227,10 @@ class StudyTimer:
             self.start_time = time.perf_counter()
             self.timer_start_button.config(text="Stop", bg="#f44336", activebackground="#da190b") # 버튼 Stop으로 변경
             self.timer_reset_button.place_forget()
+            
+            # 상태 텍스트 업데이트
+            self.timer_status_var.set("현재 공부 중입니다")
+
             # 상시 메시지는 계속 표시되도록 유지 (중지하지 않음)
             if self.tick_job is None:
                 self.update_timer() # 타이머 업데이트 시작
@@ -225,6 +244,9 @@ class StudyTimer:
             self.start_time = None
             self.timer_start_button.config(text="Start", bg="#4caf50", activebackground="#45a049") # 버튼 Start로 변경
             self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
+            
+            # 상태 텍스트 업데이트
+            self.timer_status_var.set("공부가 일시정지되었습니다")
 
             if self.tick_job is not None:
                 try:
@@ -264,6 +286,9 @@ class StudyTimer:
         self.timer_start_button.config(text="Start", bg="#4caf50", activebackground="#45a049")
         self.time_label.config(text="0:00:00")
         self.timer_reset_button.place_forget()
+        
+        # 상태 텍스트 초기화
+        self.timer_status_var.set("Start 버튼을 눌러 공부 측정을 시작하세요")
 
     def format_ms(self, ms: int) -> str: # ms를 시:분:초 형식으로 변환
         total = ms // 1000
@@ -342,20 +367,22 @@ class StudyTimer:
                 status_text = f"현재 상태 : {pred_label}"
             self.result_var.set(status_text)
 
-            # 미집중 상태일 때 : 타이머 정지 카운트다운 시작 (타이머가 실행 중일 때만)
+            # 미집중 감지 : 분리된 카운트다운 디스플레이 시작 (타이머 실행 중일 때만)
             if pred_label == "Distracted" and self.is_running:
                 if self.countdown_job is None:
-                    self.remaining_secs = 30  # 몇 초 동안 미집중 상태일시 정지할지 설정 / 초기화
-                    self.update_countdown()
+                    self.remaining_secs = 30  # 미집중 허용 시간 (초)
+                    self.update_countdown()  # 텍스트 + 숫자 분리 표시 시작
 
-            # 공부 중일 때 : 카운트다운 취소
+            # 공부 중일 때: 미집중 카운트다운 해제
             elif pred_label == "Studying":
+                # 진행 중인 카운트다운 취소
                 if self.countdown_job is not None:
                     try:
                         self.root.after_cancel(self.countdown_job)
                     except Exception:
                         pass
                     self.countdown_job = None
+                # 카운트다운 라벨들 초기화
                 self.ai_countdown_label.config(text="")
                 self.ai_countdown_number_label.config(text="")
 
@@ -377,31 +404,44 @@ class StudyTimer:
         # 10ms 간격으로 업데이트 예약
         self.root.after(10, self.update_ai_frame)
 
-    def update_countdown(self): # 미집중 상태 카운트다운 함수
+    def update_countdown(self): 
+        """미집중 상태 카운트다운 처리 (텍스트와 숫자 분리 표시)"""
         
-        if self.remaining_secs > 0: # 카운트다운 진행 중
-            # 텍스트와 숫자를 분리해서 표시
+        if self.remaining_secs > 0:
+            # 텍스트 라벨: 고정 메시지
             self.ai_countdown_label.config(text="집중하지 않고 있음! 타이머 정지까지")
+            
+            # 숫자 라벨: 카운트다운 숫자만 표시
             self.ai_countdown_number_label.config(text=f"{self.remaining_secs}")
             self.remaining_secs -= 1
             self.countdown_job = self.root.after(1000, self.update_countdown)
 
-        else: # 카운트다운 종료 - 타이머 정지
+        else:
+            # 카운트다운 종료 - 타이머 정지
             self.countdown_job = None
             if self.is_running:
+                # 타이머 정지 처리
                 if self.start_time is not None:
                     self.elapsed_ms += int((time.perf_counter() - self.start_time) * 1000)
                 self.is_running = False
                 self.start_time = None
                 self.timer_start_button.config(text="Start", bg="#4caf50", activebackground="#45a049")
+                
+                # 타이머 업데이트 취소
                 if self.tick_job is not None:
                     try:
                         self.root.after_cancel(self.tick_job)
                     except Exception:
                         pass
                     self.tick_job = None
+                    
                 self.time_label.config(text=self.format_ms(self.elapsed_ms))
                 self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
+                
+                # 미집중으로 자동 중지 상태 텍스트
+                self.timer_status_var.set("미집중으로 공부가 중단되었습니다")
+            
+            # 카운트다운 끝 메시지 표시
             self.ai_countdown_label.config(text="집중 실패: 30초 경과")
             self.ai_countdown_number_label.config(text="")
             messagebox.showwarning("집중 경고", "미집중 상태가 지속되어 타이머가 중지되었습니다.")
