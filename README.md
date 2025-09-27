@@ -43,17 +43,37 @@ Machine Learning: TensorFlow + Keras
 Data Processing: NumPy + PIL
 ```
 
+
 ### 모델 구조
 - **입력**: MediaPipe 포즈 랜드마크 (33개 관절점 × 4차원 = 132차원)
 - **전처리**: 14,739차원으로 패딩 (모델 호환성)
 - **모델**: Teachable Machine으로 훈련된 포즈 분류 모델
 - **출력**: 2클래스 분류 (Studying, Distracted)
 
-### 데이터 플로우
-```
-카메라 입력 → OpenCV 프레임 캡처 → MediaPipe 포즈 인식 → 
-특징 추출 → TensorFlow 모델 추론 → 상태 판별 → UI 업데이트
-```
+### 각 기술 스택별 집중 상태 판별 과정
+
+#### 1. 웹캠 촬영 (OpenCV)
+- 웹캠에서 영상 프레임을 실시간으로 받아옴
+- 받아 온 프레임을 MediaPipe로 전달
+
+#### 2. 전처리 단계 (MediaPipe)
+- OpenCV에서 프레임을 받아옴
+- 사람의 얼굴, 눈, 손, 자세 등 주요 특징점을 추출
+- 단순 픽셀 단위 이미지 → 구조화된 좌표 데이터로 변환
+
+#### 3. 집중 상태 AI 판별 단계 (TensorFlow)
+- MediaPipe가 추출한 특징점 데이터를 입력값으로 받음
+- 학습된 모델을 통해 현재 사용자의 집중 상태를 분류
+- 이 결과값이 타이머 작동에 사용됨
+
+#### 4. 후처리 및 시각화 (OpenCV)
+- 원본 프레임에 결과 표시용 그래픽 (얼굴, 손 특징점)을 그려줌
+- 영상 스트리밍과 시각적 피드백을 담당
+
+#### 5. GUI 및 타이머 제어 (Tkinter)
+- 프로그램의 메인 UI를 담당
+- 타이머 기능을 구현하고, 사용자가 조작할 수 있도록 제공
+- TensorFlow 분류 결과에 따라 타이머를 일시정지하고 경고 메시지를 띄움
 
 ## 📦 설치 및 실행
 
@@ -67,7 +87,7 @@ Data Processing: NumPy + PIL
 
 1. **저장소 클론**
 ```bash
-git clone https://github.com/your-username/AI-Study-Timer.git
+git clone https://github.com/z1hxn/AI-Study-Timer.git
 cd AI-Study-Timer
 ```
 
@@ -114,7 +134,7 @@ AI-Study-Timer/
 │       ├── metadata.json       # 모델 메타데이터
 │       ├── model.json          # 모델 구조 정의
 │       └── weights.bin         # 모델 가중치
-├── test/
+├── tests/
 │   ├── check_tf.py            # TensorFlow 설치 확인
 │   ├── tf_model_converter.py  # 모델 변환 유틸리티
 │   └── tf_model_test.py       # 모델 테스트
@@ -140,70 +160,31 @@ AI-Study-Timer/
 - **상태 표시**: 현재 집중 상태 및 확률 정보
 - **경고 시스템**: 미집중 시 카운트다운 및 알림
 
-## 🔬 기술적 세부사항
 
-### 포즈 인식 파이프라인
-```python
-# MediaPipe 포즈 처리
-results = self.pose.process(frame_rgb)
-keypoints = []
-if results.pose_landmarks:
-    for lm in results.pose_landmarks.landmark:
-        keypoints.extend([lm.x, lm.y, lm.z, lm.visibility])
-```
+## 🚀 향후 계획
 
-### 모델 추론 과정
-```python
-# 특징 벡터 전처리
-input_data = np.array(keypoints, dtype=np.float32).reshape(1, 1, 14739)
-preds = self.model.predict(input_data, verbose=0)
-pred_label = self.labels[np.argmax(preds)]
-```
-
-### 실시간 처리 최적화
-- **프레임 레이트**: 10ms 간격 업데이트 (100 FPS)
-- **메모리 관리**: 효율적인 이미지 버퍼 관리
-- **비동기 처리**: GUI 블로킹 방지를 위한 비동기 업데이트
-
-## 🚀 확장 가능성
-
-### 단기 개선사항
-- [ ] 학습 통계 및 리포트 기능
-- [ ] 사용자 프로필 및 설정 저장
-- [ ] 다양한 집중도 모델 지원
-- [ ] 음성 알림 시스템
-
-### 장기 발전 방향
-- [ ] 웹 기반 버전 개발
-- [ ] 모바일 앱 포팅
-- [ ] 클라우드 기반 모델 서빙
-- [ ] 다중 사용자 지원
+- 학습 통계 및 리포트 기능
+- 사용자 프로필 및 설정 저장
+- 다양한 집중도 모델 지원
+- 웹 기반 버전 개발
 
 ## 🤝 기여하기
 
-프로젝트 개선에 참여하고 싶으시다면:
+버그 리포트나 기능 제안은 GitHub Issues를 통해 해주세요.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. 저장소를 Fork 합니다
+2. 새 브랜치를 생성합니다 (`git checkout -b feature/새기능`)
+3. 변경사항을 커밋합니다 (`git commit -m '새 기능 추가'`)
+4. 브랜치에 푸시합니다 (`git push origin feature/새기능`)
+5. Pull Request를 생성합니다
 
-## 📄 라이선스
+## 📄 프로젝트 자료
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
-
-## 👥 팀 정보
-
-**2025 가천대학교 과학영재교육원 정보융합 분야**  
-- 프로젝트 기간: 2025년
-- 기술 스택: Python, TensorFlow, MediaPipe, OpenCV
-- 분야: 컴퓨터 비전, 머신러닝, GUI 애플리케이션
-
-## 📞 문의 및 지원
-
-프로젝트에 대한 문의사항이나 기술적 지원이 필요하시면 이슈를 등록해 주세요.
+프로젝트의 상세한 발표 자료와 문서는 [docs](./docs) 폴더를 참조하세요.
+- 중간발표회 및 최종발표회 PPT 및 보고서
+- 프로젝트 다이어그램 및 플로우차트
+- 시연 영상 및 관련 자료
 
 ---
 
-**⭐ 이 프로젝트가 도움이 되었다면 스타를 눌러주세요!**
+**⭐ 프로젝트가 도움이 되었다면 스타를 눌러주세요!**
