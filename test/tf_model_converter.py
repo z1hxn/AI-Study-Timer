@@ -3,14 +3,14 @@ import numpy as np
 from tensorflow import keras
 
 # 1. JSON 파일 로드
-with open("./src/model/StudyAI_TensorFlow/model.json", "r") as f:
+with open("../model/StudyAI_TensorFlow/model.json", "r") as f:
     model_json = json.load(f)
 
 # 2. 모델 구조 불러오기
 model = keras.Sequential.from_config(model_json["modelTopology"]["config"])
 
 # 3. 가중치 바이너리 로드
-with open("./src/model/StudyAI_TensorFlow/weights.bin", "rb") as f:
+with open("../model/StudyAI_TensorFlow/weights.bin", "rb") as f:
     weights_array = np.frombuffer(f.read(), dtype=np.float32)
 
 # 4. 가중치 매핑 정보 읽기
@@ -29,5 +29,5 @@ for w in weights_manifest:
 model.set_weights(tensor_slices)
 
 # 6. 저장
-model.save("./src/model/trained.h5")
+model.save("../model/trained.h5")
 print("✅ 동작 모델 변환 완료: model_trained.h5")

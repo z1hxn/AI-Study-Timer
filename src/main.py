@@ -77,10 +77,10 @@ class StudyTimer:
         self.create_widgets()
 
         # AI 모델 불러오기
-        with open("./src/model/TensorFlow/metadata.json", "r") as f:
+        with open("../model/TensorFlow/metadata.json", "r") as f:
             metadata = json.load(f)
         self.labels = metadata["labels"]
-        self.model = keras.models.load_model("./src/model/Study_AI_Model.h5")
+        self.model = keras.models.load_model("../model/Study_AI_Model.h5")
         self.pose = mp.solutions.pose.Pose()
         self.mp_drawing = mp.solutions.drawing_utils
         self.cap = cv2.VideoCapture(self.camera_index)
