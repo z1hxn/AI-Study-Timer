@@ -5,7 +5,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from tensorflow import keras
 import json
-with open("../model/TensorFlow/metadata.json", "r") as f:
+with open("../model/metadata.json", "r") as f:
     metadata = json.load(f)
 labels = metadata["labels"]
 

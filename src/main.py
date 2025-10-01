@@ -61,6 +61,7 @@ class StudyTimer:
         # 카메라 선택 관련 변수
         self.camera_index = 1  # 기본값: 맥북 내장 카메라
 
+        # 카메라 이름 매핑
         self.camera_names = {
             0: "iPhone Camera",
             1: "MacBook Camera",
@@ -77,7 +78,7 @@ class StudyTimer:
         self.create_widgets()
 
         # AI 모델 불러오기
-        with open("../model/TensorFlow/metadata.json", "r") as f:
+        with open("../model/metadata.json", "r") as f:
             metadata = json.load(f)
         self.labels = metadata["labels"]
         self.model = keras.models.load_model("../model/Study_AI_Model.h5")
@@ -85,6 +86,7 @@ class StudyTimer:
         self.mp_drawing = mp.solutions.drawing_utils
         self.cap = cv2.VideoCapture(self.camera_index)
 
+        # AI 프레임 업데이트 시작
         self.update_ai_frame()
         
         # 상시 격려 메시지 시작
@@ -299,7 +301,7 @@ class StudyTimer:
 
     def update_ai_frame(self): # AI 판독 프레임 업데이트 함수
 
-        ret, frame = self.cap.read()
+        ret, frame = self.cap.read() # OpenCV로 카메라 프레임 읽기
 
         # 카메라 프레임 읽기 실패 시 재시도
         if not ret:
@@ -307,10 +309,11 @@ class StudyTimer:
             self.root.after(10, self.update_ai_frame)
             return
 
+        # BGR을 RGB로 변환 (Mediapipe는 RGB 사용)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # 타이머가 실행 중이지 않을경우 판독X
-        if not self.is_running:
+
+        if not self.is_running: # 타이머가 실행 중일 경우에만 판독 X
             self.result_var.set("타이머를 시작해주세요")
             self.probs_var.set("")
             self.ai_countdown_label.config(text="")
@@ -323,13 +326,11 @@ class StudyTimer:
                 except Exception:
                     pass
                 self.countdown_job = None
-            
-            # 상시 메시지 표시는 유지 (이미 start_continuous_messages에서 자동으로 작동 중)
-        else:
-            # 판독 부분
-            results = self.pose.process(frame_rgb)
 
-            # 뼈대 표시 부분
+        else: # 실행 중일 경우 판독
+            results = self.pose.process(frame_rgb) # Mediapipe Pose 처리
+
+            # 뻐대 랜드마크 그리기
             if results.pose_landmarks:
                 self.mp_drawing.draw_landmarks(
                     frame_rgb, 
@@ -344,13 +345,14 @@ class StudyTimer:
                 for lm in results.pose_landmarks.landmark:
                     keypoints.extend([lm.x, lm.y, lm.z, lm.visibility])
 
-            # 14739 길이로 0 패딩
+            # 14739 길이로 0 패딩 (모델 입력 크기 맞추기)
             if len(keypoints) < 14739:
                 keypoints.extend([0.0] * (14739 - len(keypoints)))
             else:
                 keypoints = keypoints[:14739]
             input_data = np.array(keypoints, dtype=np.float32).reshape(1, 1, 14739)
             
+            # 모델 예측
             preds = self.model.predict(input_data, verbose=0)
             preds = preds.flatten()
             pred_index = np.argmax(preds)
@@ -384,6 +386,7 @@ class StudyTimer:
                 self.ai_countdown_label.config(text="")
                 self.ai_countdown_number_label.config(text="")
 
+            # 확률 표시 업데이트
             probs_text = " / ".join([f"{self.labels[i]}: {float(preds[i])*100:.1f}%" for i in range(len(self.labels))])
             self.probs_var.set(probs_text)
 
@@ -414,7 +417,7 @@ class StudyTimer:
             self.remaining_secs -= 1
             self.countdown_job = self.root.after(1000, self.update_countdown)
 
-        else: # 카운트다운 종료 - 타이머 정지
+        else: # 카운트다운 종료 (미집중 시간 초과) : 타이머 정지
 
             # 카운트다운 예약 해제
             self.countdown_job = None
