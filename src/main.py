@@ -29,7 +29,7 @@ class StudyTimer:
         self.probs_var = StringVar()
 
         self.countdown_job = None
-        self.remaining_secs = 0  # 미집중 상태 측정 시간
+        self.remaining_secs = 0  # 미집중 카운트다운 시간
 
         # 타이머 프레임 상태 표시
         self.timer_status_var = StringVar(value="Start 버튼을 눌러 공부 측정을 시작하세요")
@@ -187,7 +187,7 @@ class StudyTimer:
         )
         self.ai_probs_label.pack(pady=5)
 
-        # 미집중 경고 텍스트 (분리된 표시)
+        # 미집중 경고 텍스트 설명 라벨 (카운트다운 위)
         self.ai_countdown_label = Label(
             self.ai_frame, 
             font=("Pretendard", 16), 
@@ -197,7 +197,7 @@ class StudyTimer:
         )
         self.ai_countdown_label.pack(pady=5)
         
-        # 미집중 타이머 숫자 (큰 폰트로 분리 표시)
+        # 미집중 카운트다운 숫자
         self.ai_countdown_number_label = Label(
             self.ai_frame, 
             font=("Pretendard", 32, "bold"), 
@@ -207,7 +207,7 @@ class StudyTimer:
         )
         self.ai_countdown_number_label.pack(pady=2)
         
-        # 격려 문구 표시 라벨 (카운트다운과 맨밑 사이 중간)
+        # 격려 문구 표시 라벨
         self.ai_pause_message_label = Label(
             self.ai_frame, 
             textvariable=self.pause_message_var,
@@ -220,13 +220,14 @@ class StudyTimer:
         self.ai_pause_message_label.pack(side=BOTTOM, pady=60)
     
     def toggle_timer(self): # 시작/정지 버튼 함수
-        # 시작/정지 토글
-        if self.is_running == False:
-            # 시작
+
+        # 눌렀을 때 상태에 따라 시작/정지 토글
+        if self.is_running == False: # 정지상태일시 시작
+
             self.is_running = True
-            self.start_time = time.perf_counter()
+            self.start_time = time.perf_counter() # 측정시작
             self.timer_start_button.config(text="Stop", bg="#f44336", activebackground="#da190b") # 버튼 Stop으로 변경
-            self.timer_reset_button.place_forget()
+            self.timer_reset_button.place_forget() #리셋버튼 없애기
             
             # 상태 텍스트 업데이트
             self.timer_status_var.set("현재 공부 중입니다")
@@ -235,19 +236,19 @@ class StudyTimer:
             if self.tick_job is None:
                 self.update_timer() # 타이머 업데이트 시작
 
-        else:
-            # 정지
+        else:  # 실행상태일시 중지
             if self.start_time is not None:
-                self.elapsed_ms += int((time.perf_counter() - self.start_time) * 1000)
+                self.elapsed_ms += int((time.perf_counter() - self.start_time) * 1000) # 누적 시간에 더하기
 
             self.is_running = False
             self.start_time = None
             self.timer_start_button.config(text="Start", bg="#4caf50", activebackground="#45a049") # 버튼 Start로 변경
-            self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
+            self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center") # 리셋버튼 보이기
             
             # 상태 텍스트 업데이트
             self.timer_status_var.set("공부가 일시정지되었습니다")
 
+            # 타이머 업데이트 취소
             if self.tick_job is not None:
                 try:
                     self.root.after_cancel(self.tick_job)
@@ -264,20 +265,19 @@ class StudyTimer:
             self.tick_job = None
             return
 
-        current_ms = self.elapsed_ms + int((time.perf_counter() - self.start_time) * 1000)
-        self.time_label.config(text=self.format_ms(current_ms))
-        self.tick_job = self.root.after(200, self.update_timer)
+        current_ms = self.elapsed_ms + int((time.perf_counter() - self.start_time) * 1000) # 현재 시간 계산
+        self.time_label.config(text=self.format_ms(current_ms)) # 라벨 업데이트
+        self.tick_job = self.root.after(200, self.update_timer) # 200ms (업데이트 간격) 후에 다시 호출
 
     def reset_timer(self): # 리셋 버튼 함수
+
         # 타이머 완전 초기화
         if self.tick_job is not None:
             try:
-                self.root.after_cancel(self.tick_job)
+                self.root.after_cancel(self.tick_job) # 예약된 타이머 업데이트 취소
             except Exception:
                 pass
             self.tick_job = None
-
-        # 상시 메시지는 계속 표시 (리셋 시에도 격려 메시지 유지)
 
         # 상태 변수 초기화
         self.is_running = False
@@ -298,8 +298,6 @@ class StudyTimer:
         return f"{h}:{m:02d}:{s:02d}" # 포맷 수정
 
     def update_ai_frame(self): # AI 판독 프레임 업데이트 함수
-
-        # 아래 코드 TensorFlow 모델 부분 임포트 코드이므로 변경하지 말 것
 
         ret, frame = self.cap.read()
 
@@ -331,7 +329,7 @@ class StudyTimer:
             # 판독 부분
             results = self.pose.process(frame_rgb)
 
-            # 뼈대 표시
+            # 뼈대 표시 부분
             if results.pose_landmarks:
                 self.mp_drawing.draw_landmarks(
                     frame_rgb, 
@@ -358,7 +356,7 @@ class StudyTimer:
             pred_index = np.argmax(preds)
             pred_label = self.labels[pred_index]
 
-            # 모델 라벨에 따라 결과 텍스트 바꾸기
+            # 모델 라벨에 따라 결과 텍스트 변경
             if pred_label == "Studying":
                 status_text = "현재 상태 : 공부 중"
             elif pred_label == "Distracted":
@@ -367,10 +365,10 @@ class StudyTimer:
                 status_text = f"현재 상태 : {pred_label}"
             self.result_var.set(status_text)
 
-            # 미집중 감지 : 분리된 카운트다운 디스플레이 시작 (타이머 실행 중일 때만)
+            # 타이머 실행 중 미집중 감지 : 카운트다운 시작
             if pred_label == "Distracted" and self.is_running:
                 if self.countdown_job is None:
-                    self.remaining_secs = 30  # 미집중 허용 시간 (초)
+                    self.remaining_secs = 30  # 미집중 카운트다운 시작 초기화
                     self.update_countdown()  # 텍스트 + 숫자 분리 표시 시작
 
             # 공부 중일 때: 미집중 카운트다운 해제
@@ -404,10 +402,10 @@ class StudyTimer:
         # 10ms 간격으로 업데이트 예약
         self.root.after(10, self.update_ai_frame)
 
-    def update_countdown(self): 
-        """미집중 상태 카운트다운 처리 (텍스트와 숫자 분리 표시)"""
+    def update_countdown(self): # 미집중 카운트다운 업데이트 함수
         
-        if self.remaining_secs > 0:
+        if self.remaining_secs > 0: # 카운트다운이 진행중이라면
+
             # 텍스트 라벨: 고정 메시지
             self.ai_countdown_label.config(text="집중하지 않고 있음! 타이머 정지까지")
             
@@ -416,13 +414,16 @@ class StudyTimer:
             self.remaining_secs -= 1
             self.countdown_job = self.root.after(1000, self.update_countdown)
 
-        else:
-            # 카운트다운 종료 - 타이머 정지
+        else: # 카운트다운 종료 - 타이머 정지
+
+            # 카운트다운 예약 해제
             self.countdown_job = None
-            if self.is_running:
-                # 타이머 정지 처리
+            if self.is_running: # 타이머 실행중이면 취소
+
                 if self.start_time is not None:
-                    self.elapsed_ms += int((time.perf_counter() - self.start_time) * 1000)
+                    self.elapsed_ms += int((time.perf_counter() - self.start_time) * 1000) # 누적 시간에 더하기
+
+                # 상태 변수 초기화
                 self.is_running = False
                 self.start_time = None
                 self.timer_start_button.config(text="Start", bg="#4caf50", activebackground="#45a049")
@@ -434,11 +435,12 @@ class StudyTimer:
                     except Exception:
                         pass
                     self.tick_job = None
-                    
+                
+                # 리셋 버튼 보이기
                 self.time_label.config(text=self.format_ms(self.elapsed_ms))
                 self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
                 
-                # 미집중으로 자동 중지 상태 텍스트
+                # 상태 텍스트 변경
                 self.timer_status_var.set("미집중으로 공부가 중단되었습니다")
             
             # 카운트다운 끝 메시지 표시
@@ -450,23 +452,15 @@ class StudyTimer:
         if self.always_show_message:
             self.update_pause_message()
     
-    def stop_continuous_messages(self): # 메시지 업데이트 중지 함수 (종료용)
-        if self.pause_message_job is not None:
-            try:
-                self.root.after_cancel(self.pause_message_job)
-            except Exception:
-                pass
-            self.pause_message_job = None
-    
     def update_pause_message(self): # 메시지 30초마다 업데이트 함수
-        random_message = random.choice(self.encouragement_messages) #리스트에서 메시지 랜덤으로 고르기
-        self.pause_message_var.set(f'"{random_message}"') # 따옴표 붙여서 출력
-        
-        # 30초마다 상시 업데이트
-        if self.always_show_message:
-            self.pause_message_job = self.root.after(30000, self.update_pause_message)
-        else:
-            self.pause_message_job = None
+            random_message = random.choice(self.encouragement_messages) #리스트에서 메시지 랜덤으로 고르기
+            self.pause_message_var.set(f'"{random_message}"') # 따옴표 붙여서 출력
+            
+            # 30초마다 상시 업데이트
+            if self.always_show_message:
+                self.pause_message_job = self.root.after(30000, self.update_pause_message)
+            else:
+                self.pause_message_job = None
 
     def select_camera(self, selection): # 카메라 선택 함수
 
@@ -489,7 +483,12 @@ class StudyTimer:
             self.tick_job = None
         
         # 상시 메시지 중지
-        self.stop_continuous_messages()
+        if self.pause_message_job is not None:
+            try:
+                self.root.after_cancel(self.pause_message_job)
+            except Exception:
+                pass
+            self.pause_message_job = None
         
         if hasattr(self, "cap") and self.cap.isOpened():
             self.cap.release()
