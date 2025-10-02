@@ -94,18 +94,18 @@ class StudyTimer:
 
     def create_widgets(self): # 위젯 생성
         self.root.grid_rowconfigure(0, weight=1)
-        for col in range(3):
+        for col in range(2):
             self.root.grid_columnconfigure(col, weight=1)
 
         # 타이머 영역
         self.timer_frame = Frame(self.root, bg="#ffffff", highlightthickness=0)
-        self.timer_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        self.timer_frame.grid(row=0, column=0, sticky="nsew")
 
-        # 타이머 상태 표시 (맨 위, 맨 왼쪽)
+        # 프로그램 상태 표시
         self.timer_status_label = Label(
             self.timer_frame,
             textvariable=self.timer_status_var,
-            font=("Pretendard", 16),
+            font=("Pretendard", 20, "bold"),
             fg="#666666",
             bg="#ffffff",
             anchor="w"
@@ -114,7 +114,7 @@ class StudyTimer:
 
         # AI 판독 영역
         self.ai_frame = Frame(self.root, bg="#eef4ff", highlightthickness=0)
-        self.ai_frame.grid(row=0, column=2, sticky="nsew")
+        self.ai_frame.grid(row=0, column=1, sticky="nsew")
 
         # 카메라 선택 드롭다운
         self.camera_dropdown = OptionMenu(self.ai_frame, self.selected_camera, *self.camera_options, command=self.select_camera)
@@ -172,7 +172,7 @@ class StudyTimer:
         self.ai_result_label = Label(
             self.ai_frame, 
             textvariable=self.result_var,
-            font=("Pretendard", 20), 
+            font=("Pretendard", 35, "bold"),
             fg="#1f3b80", 
             bg="#eef4ff"
         )
@@ -182,38 +182,38 @@ class StudyTimer:
         self.ai_probs_label = Label(
             self.ai_frame, 
             textvariable=self.probs_var,
-            font=("Pretendard", 14), 
+            font=("Pretendard", 20), 
             fg="#333333", 
             bg="#eef4ff", 
             justify="left"
         )
-        self.ai_probs_label.pack(pady=5)
+        self.ai_probs_label.pack(pady=6)
 
         # 미집중 경고 텍스트 설명 라벨 (카운트다운 위)
         self.ai_countdown_label = Label(
             self.ai_frame, 
-            font=("Pretendard", 16), 
-            fg="red", 
+            font=("Pretendard", 22), 
+            fg="#ff3700", 
             bg="#eef4ff", 
             text=""
         )
-        self.ai_countdown_label.pack(pady=5)
-        
+        self.ai_countdown_label.pack(pady=(50, 6))
+
         # 미집중 카운트다운 숫자
         self.ai_countdown_number_label = Label(
             self.ai_frame, 
-            font=("Pretendard", 32, "bold"), 
-            fg="red", 
+            font=("Pretendard", 55, "bold"), 
+            fg="#ff3700", 
             bg="#eef4ff", 
             text=""
         )
         self.ai_countdown_number_label.pack(pady=2)
-        
+
         # 격려 문구 표시 라벨
         self.ai_pause_message_label = Label(
             self.ai_frame, 
             textvariable=self.pause_message_var,
-            font=("Pretendard", 18), 
+            font=("Pretendard", 22, "italic"), 
             fg="#333333", 
             bg="#eef4ff", 
             wraplength=300, 
@@ -358,13 +358,16 @@ class StudyTimer:
             pred_index = np.argmax(preds)
             pred_label = self.labels[pred_index]
 
-            # 모델 라벨에 따라 결과 텍스트 변경
+            # 모델 라벨에 따라 결과 텍스트 및 색상 변경
             if pred_label == "Studying":
-                status_text = "현재 상태 : 공부 중"
+                status_text = "공부 중"
+                self.ai_result_label.config(fg="#1f3b80")  # green
             elif pred_label == "Distracted":
-                status_text = "현재 상태 : 미집중"
-            else:
-                status_text = f"현재 상태 : {pred_label}"
+                status_text = "미집중"
+                self.ai_result_label.config(fg="#ff3700")  # orange
+            else:  # 예외 처리 및 대기(etc)
+                status_text = f"{pred_label}"
+                self.ai_result_label.config(fg="#1f3b80")  # default blue
             self.result_var.set(status_text)
 
             # 타이머 실행 중 미집중 감지 : 카운트다운 시작
@@ -387,8 +390,8 @@ class StudyTimer:
                 self.ai_countdown_number_label.config(text="")
 
             # 확률 표시 업데이트
-            probs_text = " / ".join([f"{self.labels[i]}: {float(preds[i])*100:.1f}%" for i in range(len(self.labels))])
-            self.probs_var.set(probs_text)
+            # Display only the probability for the predicted label (concentration level)
+            self.probs_var.set(f"집중도: {preds[pred_index]*100:.1f}%")
 
         # 카메라 비율 잘리는 것 방지
         max_width, max_height = 320, 240
@@ -410,7 +413,7 @@ class StudyTimer:
         if self.remaining_secs > 0: # 카운트다운이 진행중이라면
 
             # 텍스트 라벨: 고정 메시지
-            self.ai_countdown_label.config(text="집중하지 않고 있음! 타이머 정지까지")
+            self.ai_countdown_label.config(text="타이머 정지까지")
             
             # 숫자 라벨: 카운트다운 숫자만 표시
             self.ai_countdown_number_label.config(text=f"{self.remaining_secs}")
