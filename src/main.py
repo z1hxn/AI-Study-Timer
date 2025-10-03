@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import messagebox
+from tkinter import ttk
 import time
 import cv2
 import numpy as np
@@ -8,6 +9,8 @@ from PIL import Image, ImageTk
 from tensorflow import keras
 import json
 import random
+import subprocess
+import sys
 
 class StudyTimer:
     def __init__(self):
@@ -41,40 +44,39 @@ class StudyTimer:
         
         # 격려 문구 리스트
         self.encouragement_messages = [
-            "시간은 금이다. 지금이 바로 그 순간이다.",
+            "시간은 금이다.",
             "작은 습관이 큰 변화를 만든다.",
             "오늘의 노력은 내일의 성과다.",
             "포기하는 순간, 게임은 끝난다.",
-            "지금 하지 않으면 영원히 후회한다.",
-            "집중은 성공의 첫걸음이다.",
-            "한 시간 후의 나는 지금의 나를 칭찬할까?",
+            "지금 하지 않으면 후회한다.",
+            "집중은 성공의 시작이다.",
+            "한 시간 후, 나는 나를 칭찬할까?",
             "작은 성취가 큰 자신감을 만든다.",
             "멈추지 않는 자만이 도달한다.",
             "성공은 반복된 집중에서 태어난다.",
-            "시간은 당신을 기다려주지 않는다.",
-            "노력 없이는 아무것도 얻을 수 없다.",
-            "당신의 미래는 지금 결정된다.",
-            "잠깐의 집중이 평생의 결과를 바꾼다.",
-            "이 순간이 가장 중요한 순간이다."
+            "시간은 기다려주지 않는다.",
+            "노력 없이는 얻을 수 없다.",
+            "미래는 지금 결정된다.",
+            "잠깐의 집중이 평생을 바꾼다.",
+            "지금 이 순간이 가장 소중하다."
         ]
 
         # 카메라 선택 관련 변수
-        self.camera_index = 1  # 기본값: 맥북 내장 카메라
-
-        # 카메라 이름 매핑
-        self.camera_names = {
-            0: "iPhone Camera",
-            1: "MacBook Camera",
-            2: "External Camera 1",
-            3: "External Camera 2"
-        }
-        self.camera_options = [self.camera_names.get(i, f"Camera {i}") for i in range(4)]
-        self.selected_camera = StringVar(value=self.camera_names[self.camera_index])
+        self.available_cameras = self.detect_cameras()
+        if self.available_cameras:
+            self.camera_index, default_camera_name = self.available_cameras[0]
+        else:
+            self.camera_index = 0
+            default_camera_name = "기본 카메라"
+            self.available_cameras = [(self.camera_index, default_camera_name)]
+        
+        self.selected_camera = StringVar(value=default_camera_name)
 
         # 창 닫기 시 예약된 after 해제
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        # 위젯 생성
+        # 테마 구성 및 위젯 생성
+        self.configure_styles()
         self.create_widgets()
 
         # AI 모델 불러오기
@@ -92,6 +94,87 @@ class StudyTimer:
         # 상시 격려 메시지 시작
         self.start_continuous_messages()
 
+    def detect_cameras(self, max_devices=8): # 사용 가능한 카메라 감지
+        system_names = self.get_system_camera_names()
+        cameras = []
+
+        for index in range(max_devices):
+            cap = cv2.VideoCapture(index)
+            if cap is not None and cap.isOpened():
+                name = system_names[index] if index < len(system_names) else f"Camera {index}"
+                cameras.append((index, name))
+            if cap is not None:
+                cap.release()
+
+        return cameras
+
+    def get_system_camera_names(self): # 운영체제별 카메라 이름 조회
+        names = []
+        platform_key = sys.platform
+
+        try:
+            if platform_key == "darwin":
+                output = subprocess.check_output([
+                    "system_profiler",
+                    "SPCameraDataType",
+                    "-json"
+                ], text=True)
+                data = json.loads(output)
+                for camera in data.get("SPCameraDataType", []):
+                    name = camera.get("_name")
+                    if name:
+                        names.append(name)
+            elif platform_key.startswith("win"):
+                command = [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "Get-CimInstance Win32_PnPEntity | Where-Object { $_.ClassGuid -eq '{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}' } | Select-Object -ExpandProperty Name"
+                ]
+                output = subprocess.check_output(command, encoding="utf-8", errors="ignore")
+                for line in output.splitlines():
+                    cleaned = line.strip()
+                    if cleaned:
+                        names.append(cleaned)
+            elif platform_key.startswith("linux"):
+                output = subprocess.check_output(["v4l2-ctl", "--list-devices"], text=True)
+                for line in output.splitlines():
+                    if line.strip() and not line.startswith("\t"):
+                        names.append(line.split("(")[0].strip())
+        except (subprocess.SubprocessError, FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        return names
+
+    def get_camera_display_name(self, index): # 인덱스로 표시 이름 찾기
+        for camera_index, camera_name in self.available_cameras:
+            if camera_index == index:
+                return camera_name
+        return f"Camera {index}"
+
+    def configure_styles(self): # 테마 구성
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+
+        style.configure(
+            "Camera.TCombobox",
+            fieldbackground="#ffffff",
+            background="#dbe6ff",
+            foreground="#1f3b80",
+            bordercolor="#b4c6f0",
+            arrowsize=18,
+            arrowcolor="#1f3b80"
+        )
+        style.map(
+            "Camera.TCombobox",
+            fieldbackground=[("readonly", "#eef4ff"), ("active", "#eef4ff")],
+            background=[("readonly", "#dbe6ff"), ("active", "#c7d8ff")],
+            foreground=[("readonly", "#1f3b80")]
+        )
+
     def create_widgets(self): # 위젯 생성
         self.root.grid_rowconfigure(0, weight=1)
         for col in range(2):
@@ -105,7 +188,7 @@ class StudyTimer:
         self.timer_status_label = Label(
             self.timer_frame,
             textvariable=self.timer_status_var,
-            font=("Pretendard", 20, "bold"),
+            font=("Pretendard", 22, "bold"),
             fg="#666666",
             bg="#ffffff",
             anchor="w"
@@ -117,9 +200,17 @@ class StudyTimer:
         self.ai_frame.grid(row=0, column=1, sticky="nsew")
 
         # 카메라 선택 드롭다운
-        self.camera_dropdown = OptionMenu(self.ai_frame, self.selected_camera, *self.camera_options, command=self.select_camera)
-        self.camera_dropdown.config(font=("Pretendard", 12))
+        camera_names = [name for _, name in self.available_cameras]
+        self.camera_dropdown = ttk.Combobox(
+            self.ai_frame,
+            textvariable=self.selected_camera,
+            values=camera_names,
+            state="readonly",
+            font=("Pretendard", 12),
+            style="Camera.TCombobox"
+        )
         self.camera_dropdown.pack(pady=10)
+        self.camera_dropdown.bind("<<ComboboxSelected>>", self.select_camera)
 
         # 스탑워치 부분
         self.time_label = Label(
@@ -162,7 +253,7 @@ class StudyTimer:
             command=self.reset_timer, # 리셋 함수 연결
         )
         self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
-        self.timer_reset_button.place_forget()  # 처음에는 숨김
+        self.timer_reset_button.place_forget()  # 처음에는 숨기기
 
         # AI 판독 영상 영역
         self.ai_video_label = Label(self.ai_frame, bg="#eef4ff")
@@ -172,7 +263,7 @@ class StudyTimer:
         self.ai_result_label = Label(
             self.ai_frame, 
             textvariable=self.result_var,
-            font=("Pretendard", 35, "bold"),
+            font=("Pretendard", 60, "bold"),
             fg="#1f3b80", 
             bg="#eef4ff"
         )
@@ -182,7 +273,7 @@ class StudyTimer:
         self.ai_probs_label = Label(
             self.ai_frame, 
             textvariable=self.probs_var,
-            font=("Pretendard", 20), 
+            font=("Pretendard", 28), 
             fg="#333333", 
             bg="#eef4ff", 
             justify="left"
@@ -216,10 +307,10 @@ class StudyTimer:
             font=("Pretendard", 22, "italic"), 
             fg="#333333", 
             bg="#eef4ff", 
-            wraplength=300, 
+            wraplength=350, 
             justify="center"
         )
-        self.ai_pause_message_label.pack(side=BOTTOM, pady=60)
+        self.ai_pause_message_label.pack(side=BOTTOM, pady=40)
     
     def toggle_timer(self): # 시작/정지 버튼 함수
 
@@ -314,7 +405,7 @@ class StudyTimer:
 
 
         if not self.is_running: # 타이머가 실행 중일 경우에만 판독 X
-            self.result_var.set("타이머를 시작해주세요")
+            self.result_var.set("대기 중")
             self.probs_var.set("")
             self.ai_countdown_label.config(text="")
             self.ai_countdown_number_label.config(text="")
@@ -468,15 +559,31 @@ class StudyTimer:
             else:
                 self.pause_message_job = None
 
-    def select_camera(self, selection): # 카메라 선택 함수
+    def select_camera(self, event=None): # 카메라 선택 함수
+        selection = self.selected_camera.get()
+        for index, name in self.available_cameras:
+            if name == selection:
+                self.switch_camera(index, name)
+                break
 
-        # 카메라 인덱스 선택 공식 코드이므로 변경하지 말 것
-        index = list(self.camera_names.values()).index(selection)
+    def switch_camera(self, index, display_name): # 카메라 전환 처리
+        if index == self.camera_index and hasattr(self, "cap") and self.cap.isOpened():
+            return
+
+        new_cap = cv2.VideoCapture(index)
+        if not new_cap or not new_cap.isOpened():
+            if new_cap:
+                new_cap.release()
+            messagebox.showerror("카메라 오류", f"선택한 카메라({display_name})를 열 수 없습니다.")
+            self.selected_camera.set(self.get_camera_display_name(self.camera_index))
+            return
+
         if hasattr(self, "cap") and self.cap.isOpened():
             self.cap.release()
+
         self.camera_index = index
-        self.cap = cv2.VideoCapture(self.camera_index)
-        self.result_var.set(f"{selection}로 전환됨")
+        self.cap = new_cap
+        messagebox.showinfo("카메라 전환 알림", f"카메라가 {display_name}(으)로 전환되었습니다")
 
     def on_close(self): # 창 닫기 함수
         
