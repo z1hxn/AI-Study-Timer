@@ -273,7 +273,7 @@ class StudyTimer:
         self.ai_probs_label = Label(
             self.ai_frame, 
             textvariable=self.probs_var,
-            font=("Pretendard", 28), 
+            font=("Pretendard", 30), 
             fg="#333333", 
             bg="#eef4ff", 
             justify="left"
@@ -405,7 +405,7 @@ class StudyTimer:
 
 
         if not self.is_running: # 타이머가 실행 중일 경우에만 판독 X
-            self.result_var.set("대기 중")                # 텍스트 색상 변경
+            self.result_var.set("대기 중") # 텍스트 색상 변경
             self.ai_result_label.config(fg="#1f3b80")
             self.probs_var.set("")
             self.ai_countdown_label.config(text="")
