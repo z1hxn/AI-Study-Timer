@@ -138,42 +138,44 @@ class StudyTimer:
         self.time_label = Label(
             self.timer_frame,
             text="0:00:00",
-            font=("Pretendard", 64, "bold"),
-            fg="#1f3b80",
-            bg="#ffffff"
+            font=("Pretendard", 96),
+            fg="#111111",
+            bg="#ffffff",
+            width=6,
+            anchor="center",
         )
-        self.time_label.place(relx=0.5, rely=0.3, anchor="center")
+        self.time_label.pack(expand=True)
 
         # Start/Stop 버튼
         self.timer_start_button = Button(
             self.timer_frame,
             text="Start",
-            font=("Pretendard", 22, "bold"),
+            font=("Pretendard", 24),
+            fg="#000000",
             bg="#4caf50",
-            fg="#ffffff",
-            activebackground="#45a049",
-            activeforeground="#ffffff",
             padx=20,
             pady=10,
-            relief="flat",
-            command=self.toggle_timer
+            borderwidth=0,
+            activebackground="#45a049",
+            command=self.toggle_timer,
         )
-        self.timer_start_button.place(relx=0.5, rely=0.55, anchor="center")
+        self.timer_start_button.place(relx=0.5, rely=0.75, anchor="center")
 
         # Reset 버튼
         self.timer_reset_button = Button(
             self.timer_frame,
             text="Reset",
-            font=("Pretendard", 18, "bold"),
+            font=("Pretendard", 24),
+            fg="#000000",
             bg="#f44336",
-            fg="#ffffff",
-            activebackground="#da190b",
-            activeforeground="#ffffff",
             padx=20,
             pady=10,
-            relief="flat",
-            command=self.reset_timer
+            borderwidth=0,
+            activebackground="#da190b",
+            command=self.reset_timer,
         )
+        self.timer_reset_button.place(relx=0.5, rely=0.9, anchor="center")
+        self.timer_reset_button.place_forget()
 
         # AI 판독 영역
         self.ai_frame = Frame(self.root, bg="#eef4ff", highlightthickness=0)
@@ -185,21 +187,21 @@ class StudyTimer:
             textvariable=self.selected_camera,
             values=[name for _, name in self.available_cameras],
             state="readonly",
-            width=30,
+            font=("Pretendard", 12),
             style="Camera.TCombobox"
         )
-        self.camera_selector.pack(pady=15)
+        self.camera_selector.pack(pady=10)
         self.camera_selector.bind("<<ComboboxSelected>>", self.select_camera)
 
         # 카메라 프레임 표시 공간
-        self.ai_video_label = Label(self.ai_frame, bg="#dbe6ff")
-        self.ai_video_label.pack(pady=10)
+        self.ai_video_label = Label(self.ai_frame, bg="#eef4ff")
+        self.ai_video_label.pack(pady=20)
 
         # AI 결과 텍스트
         self.ai_result_label = Label(
             self.ai_frame,
             textvariable=self.result_var,
-            font=("Pretendard", 28, "bold"),
+            font=("Pretendard", 60, "bold"),
             fg="#1f3b80",
             bg="#eef4ff"
         )
@@ -209,21 +211,22 @@ class StudyTimer:
         self.ai_probs_label = Label(
             self.ai_frame,
             textvariable=self.probs_var,
-            font=("Pretendard", 20),
-            fg="#555555",
-            bg="#eef4ff"
+            font=("Pretendard", 30),
+            fg="#333333",
+            bg="#eef4ff",
+            justify="left"
         )
-        self.ai_probs_label.pack(pady=5)
+        self.ai_probs_label.pack(pady=6)
 
         # 미집중 경고 텍스트 설명 라벨 (카운트다운 위)
         self.ai_countdown_label = Label(
             self.ai_frame, 
-            text="", 
-            font=("Pretendard", 20, "bold"), 
+            font=("Pretendard", 22), 
             fg="#ff3700", 
-            bg="#eef4ff"
+            bg="#eef4ff",
+            text=""
         )
-        self.ai_countdown_label.pack(pady=(20, 0))
+        self.ai_countdown_label.pack(pady=(50, 6))
 
         # 미집중 카운트다운 숫자
         self.ai_countdown_number_label = Label(
