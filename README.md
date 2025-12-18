@@ -15,16 +15,19 @@
 ## ✨ 주요 기능
 
 ### 🎯 핵심 기능
+
 - **AI 기반 실시간 집중도 판별**: MediaPipe로 추출한 랜드마크를 TensorFlow 모델이 분석해 실시간으로 집중 여부를 판별하고 화면에 표시
 - **자동 타이머 제어**: 집중 상태일 때만 타이머가 작동하며, 미집중 상태가 30초 지속되면 자동 일시정지(카운트다운 포함)
 - **시각화 및 피드백 제공**: 영상 위에 포즈 랜드마크(뼈대)를 시각적으로 표시하고, 미집중 시 경고 팝업과 상시 동기부여 메시지 제공
 - **사용자 친화적 UI**: Start/Stop/Reset로 직관적인 제어, 상태에 따라 색상·문구 변화로 즉각적 피드백 제공
 
 ### 🎨 사용자 인터페이스
+
 - **좌측**: 타이머 표시와 제어 버튼(Start/Stop/Reset)
 - **우측**: 실시간 카메라 피드, AI 판별 결과, 카운트다운 및 격려 문구
 
 ### 🔧 기술적 특징
+
 - **실시간 처리**: 10ms 주기의 프레임 갱신과 즉시 판별
 - **직관적 피드백**: 상태별 색상/문구 및 카운트다운 제공
 - **크로스 플랫폼**: macOS, Windows, Linux 지원
@@ -33,6 +36,7 @@
 ## 🏗️ 시스템 아키텍처
 
 ### 기술 스택
+
 ```
 Frontend: Tkinter (Python GUI)
 Computer Vision: OpenCV + MediaPipe
@@ -41,18 +45,21 @@ Data Processing: NumPy + PIL
 ```
 
 ### 스택별 역할
+
 - **Tkinter**: 메인 화면(UI), 타이머·상태 표시, 팝업/카운트다운·격려 메시지 제공
 - **TensorFlow(Keras)**: 집중 여부를 판별하는 AI 모델 학습·실행 (Teachable Machine 학습 모델을 .h5로 변환하여 사용)
 - **MediaPipe**: 얼굴·눈·손·자세 등의 랜드마크를 정확한 좌표 데이터로 추출
 - **OpenCV**: 카메라에서 실시간 영상 캡처, 프레임 전달 및 GUI 표시용 이미지 변환
 
 ### 모델 구조
+
 - **입력**: MediaPipe 포즈 랜드마크 (33개 관절점 × 4차원 = 132차원)
 - **전처리**: 모델 호환을 위해 14,739차원으로 패딩
 - **모델**: Teachable Machine에서 학습 후 TensorFlow(.h5)로 변환해 사용
 - **출력**: 2클래스 분류 (Studying, Distracted)
 
 ### 집중 판별 플로우
+
 1. **카메라 촬영(OpenCV)**: 실시간 프레임 캡처 → MediaPipe 전달
 2. **전처리(MediaPipe)**: 랜드마크 추출 → 구조화된 좌표 데이터로 변환
 3. **AI 판별(TensorFlow)**: 랜드마크 입력 → 집중/미집중 판별
@@ -62,6 +69,7 @@ Data Processing: NumPy + PIL
 ## 📦 설치 및 실행
 
 ### 시스템 요구사항
+
 - **Python**: 3.10 이상
 - **운영체제**: macOS, Windows, Linux
 - **카메라**: 웹캠 또는 내장 카메라
@@ -70,12 +78,14 @@ Data Processing: NumPy + PIL
 ### 설치 과정
 
 1. **저장소 클론**
+
 ```bash
 git clone https://github.com/z1hxn/AI-Study-Timer.git
 cd AI-Study-Timer
 ```
 
 2. **가상환경 생성 및 활성화**
+
 ```bash
 # 가상환경 생성
 python3 -m venv venv
@@ -88,18 +98,22 @@ venv\Scripts\activate
 ```
 
 3. **의존성 설치**
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. **애플리케이션 실행**
+
 ```bash
 cd src  # 상대경로 모델파일 참조를 위해 src 폴더에서 실행 필요
 python main.py
 ```
 
 ### 의존성 패키지
+
 주요 패키지 목록:
+
 - `tensorflow==2.16.1`: 딥러닝 모델 실행
 - `mediapipe==0.10.21`: 포즈 인식 및 랜드마크 추출
 - `opencv-python==4.12.0.88`: 컴퓨터 비전 처리
@@ -111,27 +125,34 @@ python main.py
 ```
 AI-Study-Timer/
 ├── src/
-│   └── main.py                 # 메인 애플리케이션 (GUI + AI 로직)
+│   ├── main.py               # 실행 진입점
+│   ├── app.py                # StudyTimer GUI + 타이머/AI 로직
+│   ├── camera_utils.py       # 카메라 탐색 및 OS별 이름 조회
+│   ├── encouragement.py      # 격려 문구 집합
+│   └── pose_classifier.py    # MediaPipe 처리 + TensorFlow 추론 래퍼
 ├── model/
-│   ├── Study_AI_Model.h5       # 훈련된 TensorFlow 모델
-│   └── TensorFlow/
-│       ├── metadata.json       # 모델 메타데이터
-│       ├── model.json          # 모델 구조 정의
-│       └── weights.bin         # 모델 가중치
+│   ├── Study_AI_Model.h5      # 변환된 TensorFlow 모델
+│   ├── metadata.json          # 라벨·입력 정보
+│   ├── model.json             # Teachable Machine 내보낸 구조
+│   ├── weights.bin            # Teachable Machine 가중치
+│   └── TeachableMachine       # 원본 내보내기(zip)
 ├── tests/
-│   ├── check_tf.py            # TensorFlow 설치 확인
-│   ├── tf_model_converter.py  # 모델 변환 유틸리티
-│   └── tf_model_test.py       # 모델 테스트
+│   ├── tf_model_converter.py  # Teachable Machine → .h5 변환 스크립트
+│   ├── tf_model_tester.py     # 포즈 예측 시각화 테스트
+│   └── tf_version.py          # 환경별 TensorFlow 연산 테스트
 ├── docs/
-│   ├── diagram/               # 시스템 다이어그램
-│   └── source/               # 프로젝트 자료
-├── requirements.txt           # Python 의존성
-└── README.md                 # 프로젝트 문서
+│   ├── flowchart/             # 동작 플로우 자료
+│   ├── image/                 # 시연 캡처 등 이미지
+│   ├── presentation/          # 발표 자료
+│   └── report/                # 보고서 초안
+├── requirements.txt          # Python 의존성
+└── README.md                # 프로젝트 문서
 ```
 
 ## 🎮 사용법
 
 ### 기본 사용법
+
 1. **애플리케이션 실행**: `cd src && python main.py`
 2. **카메라 설정**: 우측 상단 드롭다운에서 카메라 선택
 3. **학습 시작**: "Start" 버튼 클릭하여 타이머 시작
@@ -139,11 +160,11 @@ AI-Study-Timer/
 5. **자동 제어**: 미집중 상태 30초 지속 시 자동 일시정지
 
 ### 인터페이스 구성
+
 - **좌측 영역**: 타이머 표시 및 제어 버튼
 - **우측 영역**: 실시간 카메라 피드 및 AI 분석 결과
 - **상태 표시**: 현재 집중 상태 및 확률 정보
 - **경고 시스템**: 미집중 시 카운트다운 및 알림
-
 
 ## 📈 성능 및 검증 결과
 
@@ -178,6 +199,7 @@ AI-Study-Timer/
 ## 📄 프로젝트 자료
 
 프로젝트의 상세한 발표 자료와 문서는 [docs](./docs) 폴더를 참조하세요.
+
 - 중간발표회 및 최종발표회 PPT 및 보고서
 - 프로젝트 다이어그램 및 플로우차트
 - 시연 영상 및 관련 자료
