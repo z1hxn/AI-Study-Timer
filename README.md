@@ -136,7 +136,7 @@ AI-Study-Timer/
 │   ├── model.json             # Teachable Machine 내보낸 구조
 │   ├── weights.bin            # Teachable Machine 가중치
 │   └── TeachableMachine       # 원본 내보내기(zip)
-├── tests/
+├── utils/
 │   ├── tf_model_converter.py  # Teachable Machine → .h5 변환 스크립트
 │   ├── tf_model_tester.py     # 포즈 예측 시각화 테스트
 │   └── tf_version.py          # 환경별 TensorFlow 연산 테스트
