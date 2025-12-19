@@ -13,13 +13,12 @@ from camera_utils import (
     get_system_camera_names as get_system_camera_names_util,
     get_camera_display_name as get_camera_display_name_util,
 )
-from encouragement import ENCOURAGEMENT_MESSAGES
+import settings
 from pose_classifier import PoseClassifier
 
 
 class StudyTimer:
     def __init__(self):
-        
         # 윈도우 설정
         self.root = Tk()
         self.root.title("AI Study Timer")
@@ -31,7 +30,7 @@ class StudyTimer:
         self.is_running = False  # 현재 타이머 실행 여부
         self.start_time = None   # 마지막 시작 시점의 perf_counter 값
         self.elapsed_ms = 0      # 정지 상태에서 유지되는 누적 시간(ms)
-        self.tick_job = None     # after() 예약 ID
+        self.tick_job = None     # after() 호출 예약 ID
 
         self.result_var = StringVar(value="Start 버튼을 눌러 공부를 시작하세요")
         self.probs_var = StringVar()
@@ -45,10 +44,10 @@ class StudyTimer:
         # 격려 문구 관련 변수
         self.pause_message_var = StringVar()
         self.pause_message_job = None
-        self.always_show_message = True  # 상시 표시 여부
+        self.always_show_message = settings.ENCOURAGEMENT_ALWAYS_SHOW  # 상시 표시 여부
         
         # 격려 문구 리스트
-        self.encouragement_messages = ENCOURAGEMENT_MESSAGES[:]
+        self.encouragement_messages = settings.ENCOURAGEMENT_MESSAGES[:]
 
         # 카메라 선택 관련 변수
         self.available_cameras = self.detect_cameras()
@@ -146,7 +145,7 @@ class StudyTimer:
         )
         self.time_label.pack(expand=True)
 
-        # Start/Stop 버튼
+        # 시작/정지 버튼
         self.timer_start_button = Button(
             self.timer_frame,
             text="Start",
@@ -161,7 +160,7 @@ class StudyTimer:
         )
         self.timer_start_button.place(relx=0.5, rely=0.75, anchor="center")
 
-        # Reset 버튼
+        # 초기화 버튼
         self.timer_reset_button = Button(
             self.timer_frame,
             text="Reset",
@@ -298,7 +297,7 @@ class StudyTimer:
 
         current_ms = self.elapsed_ms + int((time.perf_counter() - self.start_time) * 1000) # 현재 시간 계산
         self.time_label.config(text=self.format_ms(current_ms)) # 라벨 업데이트
-        self.tick_job = self.root.after(200, self.update_timer) # 200ms (업데이트 간격) 후에 다시 호출
+        self.tick_job = self.root.after(settings.TIMER_TICK_INTERVAL_MS, self.update_timer) # 설정 기반 업데이트 간격
 
     def reset_timer(self): # 리셋 버튼 함수
 
@@ -335,7 +334,7 @@ class StudyTimer:
         # 카메라 프레임 읽기 실패 시 재시도
         if not ret:
             self.result_var.set("카메라를 사용할 수 없습니다")
-            self.root.after(10, self.update_ai_frame)
+            self.root.after(settings.CAMERA_REFRESH_INTERVAL_MS, self.update_ai_frame)
             return
 
         # BGR을 RGB로 변환 (Mediapipe는 RGB 사용)
@@ -391,19 +390,19 @@ class StudyTimer:
             # 모델 라벨에 따라 결과 텍스트 및 색상 변경
             if pred_label == "Studying":
                 status_text = "공부 중"
-                self.ai_result_label.config(fg="#1f3b80")  # green
+                self.ai_result_label.config(fg="#1f3b80")  # 초록색
             elif pred_label == "Distracted":
                 status_text = "미집중"
-                self.ai_result_label.config(fg="#ff3700")  # orange
+                self.ai_result_label.config(fg="#ff3700")  # 주황색
             else:  # 예외 처리 및 대기(etc)
                 status_text = f"{pred_label}"
-                self.ai_result_label.config(fg="#1f3b80")  # default blue
+                self.ai_result_label.config(fg="#1f3b80")  # 기본 파란색
             self.result_var.set(status_text)
 
             # 타이머 실행 중 미집중 감지 : 카운트다운 시작
             if pred_label == "Distracted" and self.is_running:
                 if self.countdown_job is None:
-                    self.remaining_secs = 30  # 미집중 카운트다운 시작 초기화
+                    self.remaining_secs = settings.FOCUS_COUNTDOWN_SECONDS  # 미집중 카운트다운 시작 초기화
                     self.update_countdown()  # 텍스트 + 숫자 분리 표시 시작
 
             # 공부 중일 때: 미집중 카운트다운 해제
@@ -419,12 +418,12 @@ class StudyTimer:
                 self.ai_countdown_label.config(text="")
                 self.ai_countdown_number_label.config(text="")
 
-            # 확률 표시 업데이트
-            # Display only the probability for the predicted label (concentration level)
+            # 확률 표시 업데이트 (예측된 라벨의 집중도만 노출)
             self.probs_var.set(f"집중도: {preds[pred_index]*100:.1f}%")
 
         # 카메라 비율 잘리는 것 방지
-        max_width, max_height = 320, 240
+        max_width = settings.CAMERA_MAX_WIDTH
+        max_height = settings.CAMERA_MAX_HEIGHT
         h, w = frame_rgb.shape[:2]
         scale = min(max_width / w, max_height / h)
         new_w, new_h = int(w * scale), int(h * scale)
@@ -436,19 +435,21 @@ class StudyTimer:
         self.ai_video_label.config(image=imgtk)
 
         # 10ms 간격으로 업데이트 예약
-        self.root.after(10, self.update_ai_frame)
+        self.root.after(settings.CAMERA_REFRESH_INTERVAL_MS, self.update_ai_frame)
 
     def update_countdown(self): # 미집중 카운트다운 업데이트 함수
         
         if self.remaining_secs > 0: # 카운트다운이 진행중이라면
 
             # 텍스트 라벨: 고정 메시지
-            self.ai_countdown_label.config(text="타이머 정지까지")
+            self.ai_countdown_label.config(text=settings.FOCUS_COUNTDOWN_LABEL)
             
             # 숫자 라벨: 카운트다운 숫자만 표시
             self.ai_countdown_number_label.config(text=f"{self.remaining_secs}")
             self.remaining_secs -= 1
-            self.countdown_job = self.root.after(1000, self.update_countdown)
+            self.countdown_job = self.root.after(
+                settings.FOCUS_COUNTDOWN_INTERVAL_MS, self.update_countdown
+            )
 
         else: # 카운트다운 종료 (미집중 시간 초과) : 타이머 정지
 
@@ -458,7 +459,8 @@ class StudyTimer:
 
                 if self.start_time is not None:
                     self.elapsed_ms += int((time.perf_counter() - self.start_time) * 1000) # 누적 시간에 더하기
-                self.elapsed_ms = max(0, self.elapsed_ms - 30000)  # 미집중으로 정지 시 30초 패널티 적용
+                if settings.FOCUS_APPLY_PENALTY and settings.FOCUS_PENALTY_MS > 0:
+                    self.elapsed_ms = max(0, self.elapsed_ms - settings.FOCUS_PENALTY_MS)  # 커스텀 패널티 적용
 
                 # 상태 변수 초기화
                 self.is_running = False
@@ -481,9 +483,16 @@ class StudyTimer:
                 self.timer_status_var.set("미집중으로 공부가 중단되었습니다")
             
             # 카운트다운 끝 메시지 표시
-            self.ai_countdown_label.config(text="집중 실패: 30초 경과")
+            self.ai_countdown_label.config(
+                text=settings.FOCUS_FINISHED_LABEL.format(
+                    seconds=settings.FOCUS_COUNTDOWN_SECONDS
+                )
+            )
             self.ai_countdown_number_label.config(text="")
-            messagebox.showwarning("집중 경고", "미집중 상태가 지속되어 타이머가 중지되었습니다. 공부하지 않은 시간은 타이머에서 제외됩니다.")
+            messagebox.showwarning(
+                settings.FOCUS_WARNING_TITLE,
+                settings.FOCUS_WARNING_MESSAGE,
+            )
 
     def start_continuous_messages(self): # 메시지 표시 시작 함수
         if self.always_show_message:
@@ -495,7 +504,9 @@ class StudyTimer:
             
             # 30초마다 상시 업데이트
             if self.always_show_message:
-                self.pause_message_job = self.root.after(30000, self.update_pause_message)
+                self.pause_message_job = self.root.after(
+                    settings.ENCOURAGEMENT_ROTATION_INTERVAL_MS, self.update_pause_message
+                )
             else:
                 self.pause_message_job = None
 

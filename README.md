@@ -128,7 +128,7 @@ AI-Study-Timer/
 │   ├── main.py               # 실행 진입점
 │   ├── app.py                # StudyTimer GUI + 타이머/AI 로직
 │   ├── camera_utils.py       # 카메라 탐색 및 OS별 이름 조회
-│   ├── encouragement.py      # 격려 문구 집합
+│   ├── settings.py           # 사용자 조정 가능한 설정 모음
 │   └── pose_classifier.py    # MediaPipe 처리 + TensorFlow 추론 래퍼
 ├── model/
 │   ├── Study_AI_Model.h5      # 변환된 TensorFlow 모델
@@ -158,6 +158,10 @@ AI-Study-Timer/
 3. **학습 시작**: "Start" 버튼 클릭하여 타이머 시작
 4. **상태 모니터링**: 실시간으로 집중 상태 확인
 5. **자동 제어**: 미집중 상태 30초 지속 시 자동 일시정지
+
+### 설정 커스터마이징
+
+- `src/settings.py` 파일에서 격려 문구, 미집중 허용 시간, 패널티 적용 여부, 메시지 표시 간격 등 사용자 환경에 맞는 옵션을 자유롭게 수정할 수 있습니다.
 
 ### 인터페이스 구성
 
