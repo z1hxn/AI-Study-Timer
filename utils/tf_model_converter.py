@@ -29,5 +29,5 @@ for w in weights_manifest:
 model.set_weights(tensor_slices)
 
 # 6. 저장
-model.save("../model/Study_AI_Model.h5")
-print("동작 모델 변환 완료: Study_AI_Model.h5")
+model.save("../model/study_model.h5")
+print("동작 모델 변환 완료: study_model.h5")

@@ -12,7 +12,7 @@ class PoseClassifier:
     def __init__(self, model_dir=None):
         base_dir = Path(model_dir) if model_dir else Path(__file__).resolve().parent.parent / "model"
         metadata_path = base_dir / "metadata.json"
-        model_path = base_dir / "Study_AI_Model.h5"
+        model_path = base_dir / "study_model.h5"
 
         with metadata_path.open("r", encoding="utf-8") as f:
             metadata = json.load(f)

@@ -10,7 +10,7 @@ with open("../model/metadata.json", "r") as f:
 labels = metadata["labels"]
 
 # 1. 모델 불러오기
-model = keras.models.load_model("../model/Study_AI_Model.h5")
+model = keras.models.load_model("../model/study_model.h5")
 
 # 2. Mediapipe Pose
 mp_pose = mp.solutions.pose
