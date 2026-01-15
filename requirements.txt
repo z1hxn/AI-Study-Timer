@@ -13,6 +13,8 @@ google-pasta==0.2.0
 grpcio==1.75.1
 h5py==3.14.0
 idna==3.10
+jax==0.4.34
+jaxlib==0.4.34
 keras==3.11.3
 kiwisolver==1.4.9
 libclang==18.1.1
